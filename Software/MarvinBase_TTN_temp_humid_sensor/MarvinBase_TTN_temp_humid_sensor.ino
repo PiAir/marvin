@@ -4,20 +4,16 @@ MarvinBase
 Basic controls of IoT Academy Marvin LoRa Development board.
 
 This version supports:
-	- Sending LoRa uplink messages using ABP 
-	- Blink three times when sending data
+  - Sending LoRa uplink messages using ABP 
+  - Blink three times when sending data
   - Power control to RN2483 module
 
 Instructions:
-	- Get the latest version of the Arduino software
-	- In Arduino IDE select Arduino Leonardo and com port of your device
-	- Please adjust ABP adresses and key below to match yours
-	- The loop() is where the actual stuff happens. Adjust input of send_lora_data() in void loop() to send your own data.
+  - Get the latest version of the Arduino software
+  - In Arduino IDE select Arduino Leonardo and com port of your device
+  - Please adjust ABP adresses and key below to match yours
+  - The loop() is where the actual stuff happens. Adjust input of send_lora_data() in void loop() to send your own data.
 */
-// Used for the temperature / humidity sensor
-#include "DHT.h"
-#define DHTTYPE DHT11   // DHT 11 
-
 // Port to assign the type of lora data (any port can be used between 1 and 223)
 int     set_port  = 1;
 
@@ -33,13 +29,22 @@ String  set_appskey = "00000000000000000000000000000000";
 String  set_devaddr = "00000000";
 //*** <---- END Set parameters here
 
-#include <math.h>
+// timer related stuff
+unsigned long previousMillis = 0;        // will store last time data was sent
+unsigned long interval = 60000;           // interval at which to sent the data
 
-const int B=4275;                 // B value of the thermistor
-const int R0 = 100000;            // R0 = 100k
-const int DHT11_PIN = A0;     // Grove - Temperature Sensor connect to A5
 
-DHT dht(DHT11_PIN, DHTTYPE);
+//** Set thigs right for the Grove temperature / humidity sensor
+#include "DHT.h"      //download it here: https://github.com/Seeed-Studio/Grove_Temperature_And_Humidity_Sensor
+                      // press clone/download and then download as .zip
+                     
+#define DHTPIN A0     
+// define the type of sensor used (there are others)
+#define DHTTYPE DHT11   // DHT 11 
+
+DHT dht(DHTPIN, DHTTYPE);
+
+String rx_data_rec = "";
 
 /*
  * Setup() function is called when board is started. Marvin uses a serial connection to talk to your pc and a serial
@@ -47,44 +52,54 @@ DHT dht(DHT11_PIN, DHTTYPE);
  * initialized and a LED is called to blink when everything is done. 
  */
 void setup() {
+
   Serial.begin(defaultBaudRate);
   Serial1.begin(defaultBaudRate);
   InitializeSerials(defaultBaudRate);
   initializeRN2483(RN2483_power_port, reset_port);
   pinMode(led_port, OUTPUT); // Initialize LED port  
-  blinky();
   dht.begin();
+  blinky();
+  previousMillis = millis();
 }
 
-int TempValue = 0;
-
 void loop() {
+    unsigned long currentMillis = millis();
 
-  // Reading temperature or humidity takes about 250 milliseconds!
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  String loradata = "";
+    if (currentMillis - previousMillis >= interval) {
+        previousMillis = currentMillis;  
+        float h = dht.readHumidity();
+        float t = dht.readTemperature();
 
-  // check if returns are valid, if they are NaN (not a number) then something went wrong!
-  if (isnan(t) || isnan(h)) {
-    Serial.println("Failed to read from DHT");
-  } else {
-    Serial.print("Humidity: "); 
-    Serial.print(h);
-    Serial.print(" %\t");
-    Serial.print("Temperature: "); 
-    Serial.print(t);
-    Serial.println(" *C");
-    TempValue = analogRead(A0);
-    loradata += "h"+String(h)+"t"+String(t);
-  }
-  delay(1000);
-  send_LoRa_data(set_port, String(TempValue) );
-  blinky();
-  delay(1000);
-  read_data_from_LoRa_Mod();
-  delay(10000);    
+        // check if returns are valid, if they are NaN (not a number) then something went wrong!
+        if (isnan(t) || isnan(h)) {
+            Serial.println("Failed to read from DHT");
+        } else {
+            Serial.print("Humidity: "); 
+            Serial.print(h);
+            Serial.print(" %\t");
+            Serial.print("Temperature: "); 
+            Serial.print(t);
+            Serial.println(" *C");
+        }
+        int temp = (int) h;
+        int hum = (int) t;  
+        int tempdec = t * 100;
+        int humdec = h * 100;
+        
+        send_LoRa_data(set_port, String(temp, HEX) + String(hum, HEX));      
+    }    
+    if (rx_data_rec == "mac_rx 1 FF") {
+      Serial.println("Received downlink request for response");
+      // aknowledge - just for demo purpose
+      send_LoRa_data(set_port, "0000");  
+      rx_data_rec ="";
+    } else if (rx_data_rec > "") {
+      Serial.print("Received: ");
+      Serial.println(rx_data_rec);
+      rx_data_rec = "";     
+    }
+ 
 }
 
 void InitializeSerials(int baudrate)
@@ -146,6 +161,7 @@ void read_data_from_LoRa_Mod()
 {
   if (Serial1.available()) {
     String inByte = Serial1.readString();
+    rx_data_rec = inByte;
     Serial.println(inByte);
   }
 

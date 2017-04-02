@@ -24,9 +24,9 @@ int     led_port = 13;
 
 
 //*** Set parameters here BEGIN ---->
-String  set_nwkskey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // Put your 32 hex char here
-String  set_appskey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // Put your 32 hex char here
-String  set_devaddr = "xxxxxx"; // Put your 8 hex char here
+String  set_nwkskey = "c0fec32958814907ab2fece0cceed6bb"; // Put your 32 hex char here
+String  set_appskey = "fa2903a78791d66945c50334a16b5a7d"; // Put your 32 hex char here
+String  set_devaddr = "142040A1"; // Put your 8 hex char here
 //*** <---- END Set parameters here
 
 // Some global items
